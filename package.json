@@ -1,0 +1,101 @@
+{
+  "name": "expense-splitter",
+  "version": "0.0.1",
+  "description": "",
+  "author": "",
+  "private": true,
+  "license": "UNLICENSED",
+  "scripts": {
+    "build": "nest build gateway && nest build users && nest build groups && nest build expenses && nest build balances",
+    "format": "prettier --write \"apps/{gateway,users,groups,expenses,balances}/**/*.ts\" \"libs/**/*.ts\"",
+    "start:dev:gateway": "nest start gateway --watch",
+    "start:dev:users": "nest start users --watch",
+    "start:dev:groups": "nest start groups --watch",
+    "start:dev:expenses": "nest start expenses --watch",
+    "start:dev:balances": "nest start balances --watch",
+    "start:dev:web": "npm --prefix apps/web run dev",
+    "start:dev": "concurrently -n gateway,users,groups,expenses,balances,web -c blue,green,yellow,magenta,cyan,white \"npm run start:dev:gateway\" \"npm run start:dev:users\" \"npm run start:dev:groups\" \"npm run start:dev:expenses\" \"npm run start:dev:balances\" \"npm run start:dev:web\"",
+    "start:prod": "concurrently -n gateway,users,groups,expenses,balances \"node dist/apps/gateway/main.js\" \"node dist/apps/users/main.js\" \"node dist/apps/groups/main.js\" \"node dist/apps/expenses/main.js\" \"node dist/apps/balances/main.js\"",
+    "docker:up": "docker compose up -d",
+    "docker:down": "docker compose down",
+    "lint": "eslint \"{apps/gateway,apps/users,apps/groups,apps/expenses,apps/balances,libs}/**/*.ts\" --fix",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:cov": "jest --coverage"
+  },
+  "dependencies": {
+    "@nestjs/common": "^11.0.1",
+    "@nestjs/config": "^12.0.0",
+    "@nestjs/core": "^11.0.1",
+    "@nestjs/jwt": "^12.0.1",
+    "@nestjs/microservices": "^11.2.3",
+    "@nestjs/passport": "^12.0.0",
+    "@nestjs/platform-express": "^11.0.1",
+    "@nestjs/swagger": "^11.4.7",
+    "@nestjs/terminus": "^11.1.1",
+    "@nestjs/typeorm": "^11.0.3",
+    "bcrypt": "^6.0.0",
+    "class-transformer": "^0.5.1",
+    "class-validator": "^0.15.1",
+    "ioredis": "^5.11.1",
+    "passport": "^0.7.0",
+    "passport-jwt": "^4.0.1",
+    "pg": "^8.23.0",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.1",
+    "typeorm": "^1.1.0",
+    "uuid": "^14.0.2"
+  },
+  "devDependencies": {
+    "@eslint/eslintrc": "^3.2.0",
+    "@eslint/js": "^9.18.0",
+    "@nestjs/cli": "^11.0.0",
+    "@nestjs/schematics": "^11.0.0",
+    "@nestjs/testing": "^11.0.1",
+    "@types/bcrypt": "^6.0.0",
+    "@types/express": "^5.0.0",
+    "@types/jest": "^30.0.0",
+    "@types/node": "^24.0.0",
+    "@types/passport-jwt": "^4.0.1",
+    "@types/supertest": "^7.0.0",
+    "@types/uuid": "^10.0.0",
+    "concurrently": "^10.0.5",
+    "eslint": "^9.18.0",
+    "eslint-config-prettier": "^10.0.1",
+    "eslint-plugin-prettier": "^5.2.2",
+    "globals": "^17.0.0",
+    "jest": "^30.0.0",
+    "prettier": "^3.4.2",
+    "source-map-support": "^0.5.21",
+    "supertest": "^7.0.0",
+    "ts-jest": "^29.2.5",
+    "ts-loader": "^9.5.2",
+    "ts-node": "^10.9.2",
+    "tsconfig-paths": "^4.2.0",
+    "typescript": "^5.7.3",
+    "typescript-eslint": "^8.20.0"
+  },
+  "jest": {
+    "moduleFileExtensions": [
+      "js",
+      "json",
+      "ts"
+    ],
+    "rootDir": ".",
+    "testRegex": ".*\\.spec\\.ts$",
+    "transform": {
+      "^.+\\.(t|j)s$": "ts-jest"
+    },
+    "collectCoverageFrom": [
+      "**/*.(t|j)s"
+    ],
+    "coverageDirectory": "./coverage",
+    "testEnvironment": "node",
+    "roots": [
+      "<rootDir>/apps/"
+    ],
+    "moduleNameMapper": {
+      "^@app/shared(.*)$": "<rootDir>/libs/shared/src$1"
+    }
+  }
+}
