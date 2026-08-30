@@ -5,13 +5,13 @@ NestJS microservices learning project — split expenses among group members and
 ## Architecture
 
 - **Gateway** (HTTP `:3000`) — REST API, JWT auth, Swagger at `/docs`
-- **Users** — accounts and login (`:3001` health)
-- **Groups** — groups and membership (`:3002` health)
-- **Expenses** — expenses and splits; publishes domain events (`:3003` health)
-- **Balances** — balance read model and settlements; consumes events (`:3004` health)
+- **Users** — accounts and login (`:3001`)
+- **Groups** — groups and membership (`:3002`)
+- **Expenses** — expenses and splits; publishes domain events (`:3003`)
+- **Balances** — balance read model and settlements; consumes events (`:3004`)
 - **Web** — React UI (`:5173`), proxies `/api` to the gateway
 
-Services communicate over **Redis** (Nest microservice transport). Each service has its own **PostgreSQL** database.
+Services communicate over **internal HTTP** (`/internal/*` routes, `X-Internal-Token` header). **Redis** is used only for async domain events (Expenses → Balances). Each service has its own **PostgreSQL** database.
 
 ## Prerequisites
 

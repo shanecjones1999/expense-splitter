@@ -11,21 +11,14 @@ import {
   Post,
   UseGuards,
 } from '@nestjs/common';
-import { ClientProxy } from '@nestjs/microservices';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
-import { firstValueFrom } from 'rxjs';
-import {
-  AddMemberDto,
-  GroupResponseDto,
-  GroupsPatterns,
-  UserResponseDto,
-  UsersPatterns,
-} from '@app/shared';
+import { AddMemberDto, GroupResponseDto, UserResponseDto } from '@app/shared';
 import { AddMemberBodyDto } from './add-member-body.dto';
 import { CreateGroupBodyDto } from './create-group-body.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CurrentUser, type AuthUser } from '../auth/current-user.decorator';
-import { GROUPS_SERVICE, USERS_SERVICE } from '../clients/clients.module';
+import { GroupsClient } from '../clients/groups.client';
+import { UsersClient } from '../clients/users.client';
 
 @ApiTags('groups')
 @ApiBearerAuth()
@@ -33,27 +26,21 @@ import { GROUPS_SERVICE, USERS_SERVICE } from '../clients/clients.module';
 @Controller('groups')
 export class GroupsController {
   constructor(
-    @Inject(GROUPS_SERVICE) private readonly groupsClient: ClientProxy,
-    @Inject(USERS_SERVICE) private readonly usersClient: ClientProxy,
+    @Inject(GroupsClient) private readonly groupsClient: GroupsClient,
+    @Inject(UsersClient) private readonly usersClient: UsersClient,
   ) {}
 
   @Post()
   create(@CurrentUser() user: AuthUser, @Body() body: CreateGroupBodyDto) {
-    return firstValueFrom(
-      this.groupsClient.send<GroupResponseDto>(GroupsPatterns.CREATE, {
-        ...body,
-        createdBy: user.userId,
-      }),
-    );
+    return this.groupsClient.create({
+      ...body,
+      createdBy: user.userId,
+    });
   }
 
   @Get()
   list(@CurrentUser() user: AuthUser) {
-    return firstValueFrom(
-      this.groupsClient.send<GroupResponseDto[]>(GroupsPatterns.LIST_FOR_USER, {
-        userId: user.userId,
-      }),
-    );
+    return this.groupsClient.listForUser(user.userId);
   }
 
   @Get(':id')
@@ -61,12 +48,7 @@ export class GroupsController {
     @CurrentUser() user: AuthUser,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    return firstValueFrom(
-      this.groupsClient.send<GroupResponseDto>(GroupsPatterns.FIND_BY_ID, {
-        groupId: id,
-        userId: user.userId,
-      }),
-    );
+    return this.groupsClient.findById(id, user.userId);
   }
 
   @Post(':id/members')
@@ -76,9 +58,7 @@ export class GroupsController {
   ) {
     const userId = await this.resolveMemberUserId(body);
     const dto: AddMemberDto = { groupId: id, userId };
-    return firstValueFrom(
-      this.groupsClient.send<GroupResponseDto>(GroupsPatterns.ADD_MEMBER, dto),
-    );
+    return this.groupsClient.addMember(dto);
   }
 
   @Delete(':id/members/:userId')
@@ -86,12 +66,7 @@ export class GroupsController {
     @Param('id', ParseUUIDPipe) id: string,
     @Param('userId', ParseUUIDPipe) userId: string,
   ) {
-    return firstValueFrom(
-      this.groupsClient.send<GroupResponseDto>(GroupsPatterns.REMOVE_MEMBER, {
-        groupId: id,
-        userId,
-      }),
-    );
+    return this.groupsClient.removeMember({ groupId: id, userId });
   }
 
   private async resolveMemberUserId(body: AddMemberBodyDto): Promise<string> {
@@ -102,12 +77,7 @@ export class GroupsController {
       throw new BadRequestException('userId or email is required');
     }
 
-    const user = await firstValueFrom(
-      this.usersClient.send<UserResponseDto | null>(
-        UsersPatterns.FIND_BY_EMAIL,
-        { email: body.email },
-      ),
-    );
+    const user = await this.usersClient.findByEmail(body.email);
     if (!user) {
       throw new NotFoundException('User not found');
     }

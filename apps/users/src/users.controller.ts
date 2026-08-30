@@ -1,35 +1,42 @@
-import { Controller } from '@nestjs/common';
-import { MessagePattern, Payload } from '@nestjs/microservices';
 import {
-  FindUserByEmailDto,
-  FindUserByIdDto,
+  Body,
+  Controller,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
+import {
+  InternalAuthGuard,
   LoginDto,
   RegisterDto,
-  UsersPatterns,
 } from '@app/shared';
 import { UsersService } from './users.service';
 
-@Controller()
+@Controller('internal/users')
+@UseGuards(InternalAuthGuard)
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
-  @MessagePattern(UsersPatterns.REGISTER)
-  register(@Payload() dto: RegisterDto) {
+  @Post('register')
+  register(@Body() dto: RegisterDto) {
     return this.usersService.register(dto);
   }
 
-  @MessagePattern(UsersPatterns.LOGIN)
-  login(@Payload() dto: LoginDto) {
+  @Post('login')
+  login(@Body() dto: LoginDto) {
     return this.usersService.login(dto);
   }
 
-  @MessagePattern(UsersPatterns.FIND_BY_ID)
-  findById(@Payload() dto: FindUserByIdDto) {
-    return this.usersService.findById(dto.id);
+  @Get('by-email')
+  findByEmail(@Query('email') email: string) {
+    return this.usersService.findByEmail(email);
   }
 
-  @MessagePattern(UsersPatterns.FIND_BY_EMAIL)
-  findByEmail(@Payload() dto: FindUserByEmailDto) {
-    return this.usersService.findByEmail(dto.email);
+  @Get(':id')
+  findById(@Param('id', ParseUUIDPipe) id: string) {
+    return this.usersService.findById(id);
   }
 }

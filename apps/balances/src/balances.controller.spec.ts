@@ -1,22 +1,27 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { BalancesController } from './balances.controller';
+import { InternalBalancesController } from './internal-balances.controller';
 import { BalancesService } from './balances.service';
 
-describe('BalancesController', () => {
-  let balancesController: BalancesController;
+describe('InternalBalancesController', () => {
+  let balancesController: InternalBalancesController;
 
   beforeEach(async () => {
     const app: TestingModule = await Test.createTestingModule({
-      controllers: [BalancesController],
-      providers: [BalancesService],
+      controllers: [InternalBalancesController],
+      providers: [
+        {
+          provide: BalancesService,
+          useValue: {},
+        },
+      ],
     }).compile();
 
-    balancesController = app.get<BalancesController>(BalancesController);
+    balancesController = app.get<InternalBalancesController>(
+      InternalBalancesController,
+    );
   });
 
-  describe('root', () => {
-    it('should return "Hello World!"', () => {
-      expect(balancesController.getHello()).toBe('Hello World!');
-    });
+  it('should be defined', () => {
+    expect(balancesController).toBeDefined();
   });
 });

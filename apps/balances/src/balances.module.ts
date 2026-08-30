@@ -5,9 +5,10 @@ import { TerminusModule } from '@nestjs/terminus';
 import { GroupBalance } from './entities/group-balance.entity';
 import { ProcessedEvent } from './entities/processed-event.entity';
 import { Settlement } from './entities/settlement.entity';
-import { BalancesController } from './balances.controller';
+import { BalancesEventsController } from './balances-events.controller';
 import { BalancesService } from './balances.service';
 import { HealthController } from './health.controller';
+import { InternalBalancesController } from './internal-balances.controller';
 
 @Module({
   imports: [
@@ -24,7 +25,11 @@ import { HealthController } from './health.controller';
     TypeOrmModule.forFeature([GroupBalance, Settlement, ProcessedEvent]),
     TerminusModule,
   ],
-  controllers: [BalancesController, HealthController],
+  controllers: [
+    InternalBalancesController,
+    BalancesEventsController,
+    HealthController,
+  ],
   providers: [BalancesService],
 })
 export class BalancesModule {}

@@ -8,15 +8,18 @@ describe('ExpensesController', () => {
   beforeEach(async () => {
     const app: TestingModule = await Test.createTestingModule({
       controllers: [ExpensesController],
-      providers: [ExpensesService],
+      providers: [
+        {
+          provide: ExpensesService,
+          useValue: {},
+        },
+      ],
     }).compile();
 
     expensesController = app.get<ExpensesController>(ExpensesController);
   });
 
-  describe('root', () => {
-    it('should return "Hello World!"', () => {
-      expect(expensesController.getHello()).toBe('Hello World!');
-    });
+  it('should be defined', () => {
+    expect(expensesController).toBeDefined();
   });
 });

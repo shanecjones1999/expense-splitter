@@ -8,15 +8,18 @@ describe('GroupsController', () => {
   beforeEach(async () => {
     const app: TestingModule = await Test.createTestingModule({
       controllers: [GroupsController],
-      providers: [GroupsService],
+      providers: [
+        {
+          provide: GroupsService,
+          useValue: {},
+        },
+      ],
     }).compile();
 
     groupsController = app.get<GroupsController>(GroupsController);
   });
 
-  describe('root', () => {
-    it('should return "Hello World!"', () => {
-      expect(groupsController.getHello()).toBe('Hello World!');
-    });
+  it('should be defined', () => {
+    expect(groupsController).toBeDefined();
   });
 });

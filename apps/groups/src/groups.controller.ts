@@ -1,46 +1,66 @@
-import { Controller } from '@nestjs/common';
-import { MessagePattern, Payload } from '@nestjs/microservices';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import {
   AddMemberDto,
   CreateGroupDto,
-  GroupIdDto,
-  GroupsPatterns,
+  InternalAuthGuard,
   RemoveMemberDto,
-  VerifyMemberDto,
 } from '@app/shared';
 import { GroupsService } from './groups.service';
 
-@Controller()
+@Controller('internal/groups')
+@UseGuards(InternalAuthGuard)
 export class GroupsController {
   constructor(private readonly groupsService: GroupsService) {}
 
-  @MessagePattern(GroupsPatterns.CREATE)
-  create(@Payload() dto: CreateGroupDto) {
+  @Post()
+  create(@Body() dto: CreateGroupDto) {
     return this.groupsService.create(dto);
   }
 
-  @MessagePattern(GroupsPatterns.FIND_BY_ID)
-  findById(@Payload() dto: GroupIdDto) {
-    return this.groupsService.findById(dto.groupId, dto.userId);
+  @Get()
+  listForUser(@Query('userId', ParseUUIDPipe) userId: string) {
+    return this.groupsService.listForUser(userId);
   }
 
-  @MessagePattern(GroupsPatterns.LIST_FOR_USER)
-  listForUser(@Payload() dto: { userId: string }) {
-    return this.groupsService.listForUser(dto.userId);
+  @Get(':groupId/members/:userId/verify')
+  verifyMember(
+    @Param('groupId', ParseUUIDPipe) groupId: string,
+    @Param('userId', ParseUUIDPipe) userId: string,
+  ) {
+    return this.groupsService.verifyMember({ groupId, userId });
   }
 
-  @MessagePattern(GroupsPatterns.ADD_MEMBER)
-  addMember(@Payload() dto: AddMemberDto) {
-    return this.groupsService.addMember(dto);
+  @Get(':groupId')
+  findById(
+    @Param('groupId', ParseUUIDPipe) groupId: string,
+    @Query('userId', new ParseUUIDPipe({ optional: true })) userId?: string,
+  ) {
+    return this.groupsService.findById(groupId, userId);
   }
 
-  @MessagePattern(GroupsPatterns.REMOVE_MEMBER)
-  removeMember(@Payload() dto: RemoveMemberDto) {
-    return this.groupsService.removeMember(dto);
+  @Post(':groupId/members')
+  addMember(
+    @Param('groupId', ParseUUIDPipe) groupId: string,
+    @Body() body: Omit<AddMemberDto, 'groupId'>,
+  ) {
+    return this.groupsService.addMember({ ...body, groupId });
   }
 
-  @MessagePattern(GroupsPatterns.VERIFY_MEMBER)
-  verifyMember(@Payload() dto: VerifyMemberDto) {
-    return this.groupsService.verifyMember(dto);
+  @Delete(':groupId/members/:userId')
+  removeMember(
+    @Param('groupId', ParseUUIDPipe) groupId: string,
+    @Param('userId', ParseUUIDPipe) userId: string,
+  ) {
+    return this.groupsService.removeMember({ groupId, userId });
   }
 }

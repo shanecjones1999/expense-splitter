@@ -1,39 +1,21 @@
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
-import { ClientProxy } from '@nestjs/microservices';
-import { firstValueFrom } from 'rxjs';
-import {
-  AuthResponseDto,
-  LoginDto,
-  RegisterDto,
-  UserResponseDto,
-  UsersPatterns,
-} from '@app/shared';
-import { USERS_SERVICE } from '../clients/clients.module';
+import { AuthResponseDto, LoginDto, RegisterDto, UserResponseDto } from '@app/shared';
+import { UsersClient } from '../clients/users.client';
 
 @Injectable()
 export class AuthService {
-  constructor(
-    @Inject(USERS_SERVICE) private readonly usersClient: ClientProxy,
-  ) {}
+  constructor(@Inject(UsersClient) private readonly usersClient: UsersClient) {}
 
   register(dto: RegisterDto): Promise<AuthResponseDto> {
-    return firstValueFrom(
-      this.usersClient.send<AuthResponseDto>(UsersPatterns.REGISTER, dto),
-    );
+    return this.usersClient.register(dto);
   }
 
   login(dto: LoginDto): Promise<AuthResponseDto> {
-    return firstValueFrom(
-      this.usersClient.send<AuthResponseDto>(UsersPatterns.LOGIN, dto),
-    );
+    return this.usersClient.login(dto);
   }
 
   async me(userId: string): Promise<UserResponseDto> {
-    const user = await firstValueFrom(
-      this.usersClient.send<UserResponseDto | null>(UsersPatterns.FIND_BY_ID, {
-        id: userId,
-      }),
-    );
+    const user = await this.usersClient.findById(userId);
     if (!user) {
       throw new NotFoundException('User not found');
     }

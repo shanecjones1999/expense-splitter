@@ -2,7 +2,7 @@
 
 How an HTTP request travels from the web client through the API gateway into the microservices, and how writes fan out as domain events.
 
-The gateway is the only HTTP API clients talk to (`:3000`, prefix `/api/v1`). Downstream services (Users, Groups, Expenses, Balances) listen on Redis for request/response messages and keep their own PostgreSQL databases. Expenses also publishes fire-and-forget events that Balances consumes to update its read model.
+The gateway is the only **public** HTTP API clients talk to (`:3000`, prefix `/api/v1`). Downstream services expose internal HTTP endpoints on `:3001`–`:3004` (protected by `X-Internal-Token`) and keep their own PostgreSQL databases. Expenses also publishes fire-and-forget events over Redis that Balances consumes to update its read model.
 
 ---
 
@@ -12,10 +12,10 @@ The gateway is the only HTTP API clients talk to (`:3000`, prefix `/api/v1`). Do
 flowchart LR
   Client["Web client<br/>:5173"] -->|"HTTP /api/v1<br/>Bearer JWT"| Gateway["API Gateway<br/>:3000"]
 
-  Gateway -->|"Redis send(cmd)"| Users["Users<br/>:3001 health"]
-  Gateway -->|"Redis send(cmd)"| Groups["Groups<br/>:3002 health"]
-  Gateway -->|"Redis send(cmd)"| Expenses["Expenses<br/>:3003 health"]
-  Gateway -->|"Redis send(cmd)"| Balances["Balances<br/>:3004 health"]
+  Gateway -->|"HTTP /internal/*"| Users["Users<br/>:3001"]
+  Gateway -->|"HTTP /internal/*"| Groups["Groups<br/>:3002"]
+  Gateway -->|"HTTP /internal/*"| Expenses["Expenses<br/>:3003"]
+  Gateway -->|"HTTP /internal/*"| Balances["Balances<br/>:3004"]
 
   Users --> UsersDB[(users_db)]
   Groups --> GroupsDB[(groups_db)]
@@ -25,11 +25,11 @@ flowchart LR
   Expenses -.->|"Redis emit<br/>expense.*"| Balances
 ```
 
-**Sync path:** `ClientProxy.send({ cmd })` — request/response over Redis. The gateway waits with `firstValueFrom(...)`.
+**Sync path:** Gateway typed HTTP clients (`UsersClient`, `GroupsClient`, …) call `/internal/*` routes on each service. Errors propagate as normal HTTP status codes.
 
-**Async path:** `eventBus.emit('expense.created' | 'expense.updated' | 'expense.deleted')` — fire-and-forget. Balances handlers are idempotent via a `processed_event` table.
+**Async path:** `eventBus.emit('expense.created' | 'expense.updated' | 'expense.deleted')` — fire-and-forget over Redis. Balances handlers are idempotent via a `processed_event` table.
 
-Health checks (`GET /health`) hit each service's HTTP port directly and do not go through Redis.
+Health checks (`GET /health`) are public on each service's HTTP port.
 
 ---
 
@@ -48,18 +48,14 @@ flowchart TD
   F -->|Valid — req.user = userId, email| G
 
   G --> H{Need membership check?}
-  H -->|Yes — expenses, balances| I["RPC groups.verifyMember"]
+  H -->|Yes — expenses, balances| I["HTTP GET groups/.../verify"]
   I -->|Not a member| F403[403 Forbidden]
-  I -->|Member| J["RPC ClientProxy.send pattern"]
+  I -->|Member| J["HTTP client to downstream /internal/*"]
   H -->|No| J
 
-  J --> K[Redis transport]
-  K --> L["Downstream @MessagePattern"]
-  L --> M[Service + TypeORM]
-  M --> N[JSON response]
-
-  L -.->|RpcException| O[RpcExceptionFilter]
-  O --> P["HTTP status from error.statusCode"]
+  J --> K[Downstream HTTP controller]
+  K --> L[Service + TypeORM]
+  L --> M[JSON response]
 ```
 
 Public routes: `POST /auth/register`, `POST /auth/login`, `GET /health`. Everything else under `/api/v1` requires a JWT.
@@ -68,17 +64,17 @@ Public routes: `POST /auth/register`, `POST /auth/login`, `GET /health`. Everyth
 
 ## 3. Example: create an expense
 
-This is the richest path: auth, a membership RPC, a command RPC, a database write, then an async event that updates balances **after** the HTTP response.
+This is the richest path: auth, a membership check, an internal HTTP call, a database write, then an async event that updates balances **after** the HTTP response.
 
 ```mermaid
 sequenceDiagram
   autonumber
   actor Client
   participant GW as Gateway
-  participant Redis
   participant Groups as Groups service
   participant Expenses as Expenses service
   participant ExpDB as expenses_db
+  participant Redis
   participant Balances as Balances service
   participant BalDB as balances_db
 
@@ -86,12 +82,10 @@ sequenceDiagram
   Note over GW: ValidationPipe checks CreateExpenseBodyDto
   Note over GW: JwtAuthGuard validates JWT, sets user
 
-  GW->>Redis: send groups.verifyMember {groupId, userId}
-  Redis->>Groups: @MessagePattern groups.verifyMember
+  GW->>Groups: GET /internal/groups/{groupId}/members/{userId}/verify
   Groups-->>GW: { isMember: true }
 
-  GW->>Redis: send expenses.create {groupId, amount, splits, ...}
-  Redis->>Expenses: @MessagePattern expenses.create
+  GW->>Expenses: POST /internal/expenses {groupId, amount, splits, ...}
   Expenses->>ExpDB: INSERT expense + splits
   Expenses->>Redis: emit expense.created {eventId, splits, ...}
   Expenses-->>GW: ExpenseResponseDto
@@ -115,21 +109,19 @@ sequenceDiagram
   autonumber
   actor Client
   participant GW as Gateway
-  participant Redis
   participant Users as Users service
   participant UsersDB as users_db
 
   Client->>GW: POST /api/v1/auth/register {email, displayName, password}
   Note over GW: No JwtAuthGuard on this route
-  GW->>Redis: send users.register
-  Redis->>Users: @MessagePattern users.register
+  GW->>Users: POST /internal/users/register
   Users->>UsersDB: hash password, INSERT user
   Users->>Users: JwtService.sign {sub, email}
   Users-->>GW: { accessToken, user }
   GW-->>Client: AuthResponseDto
 ```
 
-Login is the same shape (`users.login`). The Users service issues the JWT; the gateway only verifies it on later requests via Passport (`JwtStrategy`).
+Login is the same shape (`POST /internal/users/login`). The Users service issues the JWT; the gateway only verifies it on later requests via Passport (`JwtStrategy`).
 
 ---
 
@@ -140,45 +132,37 @@ sequenceDiagram
   autonumber
   actor Client
   participant GW as Gateway
-  participant Redis
   participant Groups as Groups service
   participant Balances as Balances service
   participant BalDB as balances_db
 
   Client->>GW: GET /api/v1/groups/{groupId}/balances<br/>Authorization: Bearer JWT
-  GW->>Redis: send groups.verifyMember
-  Redis->>Groups: @MessagePattern groups.verifyMember
+  GW->>Groups: GET /internal/groups/{groupId}/members/{userId}/verify
   Groups-->>GW: { isMember: true }
-  GW->>Redis: send balances.getGroup {groupId}
-  Redis->>Balances: @MessagePattern balances.getGroup
+  GW->>Balances: GET /internal/groups/{groupId}/balances
   Balances->>BalDB: SELECT group_balance
   Balances-->>GW: GroupBalanceResponseDto[]
   GW-->>Client: JSON balances
 ```
 
-Settlements are a **command** on Balances (`settlements.create`) that writes `settlements` and adjusts `group_balance` in the same request — they do not go through Expenses or domain events.
+Settlements are a **command** on Balances (`POST /internal/groups/{groupId}/settlements`) that writes `settlements` and adjusts `group_balance` in the same request — they do not go through Expenses or domain events.
 
 ---
 
 ## 6. Errors
 
-Downstream services throw Nest HTTP exceptions (`NotFoundException`, `ConflictException`, …). Over Redis those surface as `RpcException`. The gateway's global `RpcExceptionFilter` maps `{ statusCode, message }` back to an HTTP response so the client still sees a normal REST error.
-
-```mermaid
-flowchart LR
-  S[Microservice throws] --> R[RpcException over Redis]
-  R --> F[RpcExceptionFilter on Gateway]
-  F --> H["HTTP JSON { statusCode, message }"]
-```
+Downstream services throw Nest HTTP exceptions (`NotFoundException`, `ConflictException`, …). The gateway HTTP clients surface these as `HttpException` with the same status code and message, so the client still sees a normal REST error.
 
 ---
 
-## Message patterns (quick reference)
+## Internal routes (quick reference)
 
-| Direction | Pattern | Used by |
-|-----------|---------|---------|
-| Gateway → Users | `users.register`, `users.login`, `users.findById`, `users.findByEmail` | Auth, add-member-by-email |
-| Gateway → Groups | `groups.create`, `groups.findById`, `groups.listForUser`, `groups.addMember`, `groups.removeMember`, `groups.verifyMember` | Groups CRUD + membership gates |
-| Gateway → Expenses | `expenses.create`, `expenses.findById`, `expenses.listByGroup`, `expenses.update`, `expenses.delete` | Expense CRUD |
-| Gateway → Balances | `balances.getGroup`, `settlements.create`, `settlements.listByGroup` | Reads and settlements |
+| Direction | Route | Used by |
+|-----------|-------|---------|
+| Gateway → Users | `POST /internal/users/register`, `login`; `GET /internal/users/:id`, `by-email` | Auth, add-member-by-email |
+| Gateway → Groups | `POST/GET /internal/groups`, `GET .../verify`, members CRUD | Groups CRUD + membership gates |
+| Gateway → Expenses | `POST/PATCH/DELETE /internal/expenses`, `GET .../groups/:id/expenses` | Expense CRUD |
+| Gateway → Balances | `GET/POST /internal/groups/:id/balances`, `.../settlements` | Reads and settlements |
 | Expenses → Balances (event) | `expense.created`, `expense.updated`, `expense.deleted` | Balance read model |
+
+All internal routes require `X-Internal-Token` (see `INTERNAL_SERVICE_TOKEN` in `.env`).

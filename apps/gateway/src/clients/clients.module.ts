@@ -1,21 +1,13 @@
+import { HttpModule } from '@nestjs/axios';
 import { Module } from '@nestjs/common';
-import { ClientsModule } from '@nestjs/microservices';
-import { redisClientProvider } from '@app/shared';
-
-export const USERS_SERVICE = 'USERS_SERVICE';
-export const GROUPS_SERVICE = 'GROUPS_SERVICE';
-export const EXPENSES_SERVICE = 'EXPENSES_SERVICE';
-export const BALANCES_SERVICE = 'BALANCES_SERVICE';
+import { BalancesClient } from './balances.client';
+import { ExpensesClient } from './expenses.client';
+import { GroupsClient } from './groups.client';
+import { UsersClient } from './users.client';
 
 @Module({
-  imports: [
-    ClientsModule.register([
-      redisClientProvider(USERS_SERVICE),
-      redisClientProvider(GROUPS_SERVICE),
-      redisClientProvider(EXPENSES_SERVICE),
-      redisClientProvider(BALANCES_SERVICE),
-    ]),
-  ],
-  exports: [ClientsModule],
+  imports: [HttpModule.register({ timeout: 5000 })],
+  providers: [UsersClient, GroupsClient, ExpensesClient, BalancesClient],
+  exports: [UsersClient, GroupsClient, ExpensesClient, BalancesClient],
 })
 export class ClientsModuleConfig {}

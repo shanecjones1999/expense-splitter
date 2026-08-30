@@ -14,7 +14,7 @@
     "start:dev:expenses": "nest start expenses --watch",
     "start:dev:balances": "nest start balances --watch",
     "start:dev:web": "npm --prefix apps/web run dev",
-    "start:dev": "concurrently -n gateway,users,groups,expenses,balances,web -c blue,green,yellow,magenta,cyan,white \"npm run start:dev:gateway\" \"npm run start:dev:users\" \"npm run start:dev:groups\" \"npm run start:dev:expenses\" \"npm run start:dev:balances\" \"npm run start:dev:web\"",
+    "start:dev": "concurrently -n users,groups,expenses,balances,gateway,web -c green,yellow,magenta,cyan,blue,white \"npm run start:dev:users\" \"npm run start:dev:groups\" \"npm run start:dev:expenses\" \"npm run start:dev:balances\" \"sleep 2 && npm run start:dev:gateway\" \"npm run start:dev:web\"",
     "start:prod": "concurrently -n gateway,users,groups,expenses,balances \"node dist/apps/gateway/main.js\" \"node dist/apps/users/main.js\" \"node dist/apps/groups/main.js\" \"node dist/apps/expenses/main.js\" \"node dist/apps/balances/main.js\"",
     "docker:up": "docker compose up -d",
     "docker:down": "docker compose down",
@@ -24,6 +24,7 @@
     "test:cov": "jest --coverage"
   },
   "dependencies": {
+    "@nestjs/axios": "^4.0.1",
     "@nestjs/common": "^11.0.1",
     "@nestjs/config": "^12.0.0",
     "@nestjs/core": "^11.0.1",
@@ -34,6 +35,7 @@
     "@nestjs/swagger": "^11.4.7",
     "@nestjs/terminus": "^11.1.1",
     "@nestjs/typeorm": "^11.0.3",
+    "axios": "^1.20.0",
     "bcrypt": "^6.0.0",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.15.1",

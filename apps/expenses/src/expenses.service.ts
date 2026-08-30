@@ -78,7 +78,8 @@ export class ExpensesService {
     existing.expenseDate = dto.expenseDate ?? existing.expenseDate;
 
     if (dto.splits || dto.amount || dto.splitType) {
-      const splitInput = dto.splits ??
+      const splitInput =
+        dto.splits ??
         existing.splits.map((split) => ({ userId: split.userId }));
       const computed = computeSplits({
         groupId: existing.groupId,
@@ -110,6 +111,9 @@ export class ExpensesService {
       current: this.toEventPayload(current),
       occurredAt: new Date().toISOString(),
     };
+    // This await waits for the observable returned by emit() to complete,
+    // which happens as soon as the event has been emitted into the NestJS event bus.
+    // Note: emit() is a fire-and-forget operation; this does NOT wait for any event handler to process the event.
     await firstValueFrom(
       this.eventBus.emit(EventPatterns.EXPENSE_UPDATED, event),
     );

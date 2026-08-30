@@ -1,12 +1,6 @@
 import { Controller } from '@nestjs/common';
-import { EventPattern, MessagePattern, Payload } from '@nestjs/microservices';
-import {
-  BalancesPatterns,
-  CreateSettlementDto,
-  EventPatterns,
-  GetGroupBalancesDto,
-  ListSettlementsDto,
-} from '@app/shared';
+import { EventPattern, Payload } from '@nestjs/microservices';
+import { EventPatterns } from '@app/shared';
 import type {
   ExpenseCreatedEvent,
   ExpenseDeletedEvent,
@@ -15,23 +9,8 @@ import type {
 import { BalancesService } from './balances.service';
 
 @Controller()
-export class BalancesController {
+export class BalancesEventsController {
   constructor(private readonly balancesService: BalancesService) {}
-
-  @MessagePattern(BalancesPatterns.GET_GROUP)
-  getGroupBalances(@Payload() dto: GetGroupBalancesDto) {
-    return this.balancesService.getGroupBalances(dto.groupId);
-  }
-
-  @MessagePattern(BalancesPatterns.CREATE_SETTLEMENT)
-  createSettlement(@Payload() dto: CreateSettlementDto) {
-    return this.balancesService.createSettlement(dto);
-  }
-
-  @MessagePattern(BalancesPatterns.LIST_SETTLEMENTS)
-  listSettlements(@Payload() dto: ListSettlementsDto) {
-    return this.balancesService.listSettlements(dto.groupId);
-  }
 
   @EventPattern(EventPatterns.EXPENSE_CREATED)
   onExpenseCreated(@Payload() event: ExpenseCreatedEvent) {

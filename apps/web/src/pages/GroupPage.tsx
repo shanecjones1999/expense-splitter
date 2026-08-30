@@ -33,12 +33,21 @@ export function GroupPage() {
     () => (group?.members ?? []).map((member) => member.userId),
     [group],
   );
+  /**
+   * Collects extra user IDs involved in group expenses and settlements, beyond regular group members.
+   * - From each expense, includes the user who paid (paidByUserId) and all users involved in splits.
+   * - From each settlement, includes both the payer (fromUserId) and the recipient (toUserId).
+   * This ensures that the user directory covers all users who have participated in group financial actions,
+   * even if they are not listed as group members.
+   */
   const extraIds = useMemo(
     () => [
+      // From expenses: paidByUserId and split userIds
       ...expenses.flatMap((expense) => [
         expense.paidByUserId,
         ...expense.splits.map((split) => split.userId),
       ]),
+      // From settlements: fromUserId and toUserId
       ...settlements.flatMap((settlement) => [
         settlement.fromUserId,
         settlement.toUserId,
@@ -114,7 +123,9 @@ export function GroupPage() {
 
   async function handleDeleteExpense(expenseId: string) {
     await api.deleteExpense(expenseId);
-    setExpenses((current) => current.filter((expense) => expense.id !== expenseId));
+    setExpenses((current) =>
+      current.filter((expense) => expense.id !== expenseId),
+    );
     await refreshBalancesSoon();
   }
 
@@ -163,7 +174,9 @@ export function GroupPage() {
       setSettleNote('');
       await refreshBalancesSoon();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not record settlement');
+      setError(
+        err instanceof Error ? err.message : 'Could not record settlement',
+      );
     } finally {
       setSettling(false);
     }
@@ -173,7 +186,11 @@ export function GroupPage() {
     return (
       <div className="page">
         <AppNav />
-        {error ? <p className="error">{error}</p> : <p className="muted">Opening group…</p>}
+        {error ? (
+          <p className="error">{error}</p>
+        ) : (
+          <p className="muted">Opening group…</p>
+        )}
       </div>
     );
   }
@@ -199,8 +216,7 @@ export function GroupPage() {
           ) : (
             balances.map((balance) => (
               <span key={balance.userId} className="chip">
-                {nameOf(balance.userId)}{' '}
-                {balance.netBalance >= 0 ? '+' : '−'}
+                {nameOf(balance.userId)} {balance.netBalance >= 0 ? '+' : '−'}
                 {formatMoney(Math.abs(balance.netBalance), group.currency)}
               </span>
             ))
@@ -225,7 +241,9 @@ export function GroupPage() {
             />
           ) : null}
           {expenses.length === 0 ? (
-            <p className="empty">No expenses yet. Add dinner, rent, or a round of drinks.</p>
+            <p className="empty">
+              No expenses yet. Add dinner, rent, or a round of drinks.
+            </p>
           ) : (
             <div className="ledger">
               {expenses.map((expense) => (
@@ -260,7 +278,9 @@ export function GroupPage() {
             {members.map((member) => (
               <div key={member.id} className="member-row">
                 <div className="row">
-                  <span className="avatar">{initials(nameOf(member.userId))}</span>
+                  <span className="avatar">
+                    {initials(nameOf(member.userId))}
+                  </span>
                   <div>
                     <div>
                       {nameOf(member.userId)}{' '}

@@ -9,19 +9,12 @@ import {
   Post,
   UseGuards,
 } from '@nestjs/common';
-import { ClientProxy } from '@nestjs/microservices';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
-import { firstValueFrom } from 'rxjs';
-import {
-  BalancesPatterns,
-  CreateSettlementDto,
-  GroupBalanceResponseDto,
-  GroupsPatterns,
-  SettlementResponseDto,
-} from '@app/shared';
+import { CreateSettlementDto } from '@app/shared';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CurrentUser, type AuthUser } from '../auth/current-user.decorator';
-import { BALANCES_SERVICE, GROUPS_SERVICE } from '../clients/clients.module';
+import { BalancesClient } from '../clients/balances.client';
+import { GroupsClient } from '../clients/groups.client';
 import { CreateSettlementBodyDto } from './create-settlement-body.dto';
 
 @ApiTags('balances')
@@ -30,8 +23,8 @@ import { CreateSettlementBodyDto } from './create-settlement-body.dto';
 @Controller('groups/:groupId')
 export class BalancesController {
   constructor(
-    @Inject(BALANCES_SERVICE) private readonly balancesClient: ClientProxy,
-    @Inject(GROUPS_SERVICE) private readonly groupsClient: ClientProxy,
+    @Inject(BalancesClient) private readonly balancesClient: BalancesClient,
+    @Inject(GroupsClient) private readonly groupsClient: GroupsClient,
   ) {}
 
   @Get('balances')
@@ -40,12 +33,7 @@ export class BalancesController {
     @Param('groupId', ParseUUIDPipe) groupId: string,
   ) {
     await this.ensureMember(groupId, user.userId);
-    return firstValueFrom(
-      this.balancesClient.send<GroupBalanceResponseDto[]>(
-        BalancesPatterns.GET_GROUP,
-        { groupId },
-      ),
-    );
+    return this.balancesClient.getGroupBalances(groupId);
   }
 
   @Get('settlements')
@@ -54,12 +42,7 @@ export class BalancesController {
     @Param('groupId', ParseUUIDPipe) groupId: string,
   ) {
     await this.ensureMember(groupId, user.userId);
-    return firstValueFrom(
-      this.balancesClient.send<SettlementResponseDto[]>(
-        BalancesPatterns.LIST_SETTLEMENTS,
-        { groupId },
-      ),
-    );
+    return this.balancesClient.listSettlements(groupId);
   }
 
   @Post('settlements')
@@ -78,21 +61,11 @@ export class BalancesController {
       note: body.note,
     };
 
-    return firstValueFrom(
-      this.balancesClient.send<SettlementResponseDto>(
-        BalancesPatterns.CREATE_SETTLEMENT,
-        dto,
-      ),
-    );
+    return this.balancesClient.createSettlement(dto);
   }
 
   private async ensureMember(groupId: string, userId: string): Promise<void> {
-    const result = await firstValueFrom(
-      this.groupsClient.send<{ isMember: boolean }>(
-        GroupsPatterns.VERIFY_MEMBER,
-        { groupId, userId },
-      ),
-    );
+    const result = await this.groupsClient.verifyMember(groupId, userId);
     if (!result.isMember) {
       throw new ForbiddenException('Not a group member');
     }

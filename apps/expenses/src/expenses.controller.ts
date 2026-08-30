@@ -1,40 +1,51 @@
-import { Controller } from '@nestjs/common';
-import { MessagePattern, Payload } from '@nestjs/microservices';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Patch,
+  Post,
+  UseGuards,
+} from '@nestjs/common';
 import {
   CreateExpenseDto,
-  ExpenseIdDto,
-  ExpensesPatterns,
-  ListExpensesByGroupDto,
+  InternalAuthGuard,
   UpdateExpenseDto,
 } from '@app/shared';
 import { ExpensesService } from './expenses.service';
 
-@Controller()
+@Controller('internal')
+@UseGuards(InternalAuthGuard)
 export class ExpensesController {
   constructor(private readonly expensesService: ExpensesService) {}
 
-  @MessagePattern(ExpensesPatterns.CREATE)
-  create(@Payload() dto: CreateExpenseDto) {
+  @Post('expenses')
+  create(@Body() dto: CreateExpenseDto) {
     return this.expensesService.create(dto);
   }
 
-  @MessagePattern(ExpensesPatterns.FIND_BY_ID)
-  findById(@Payload() dto: ExpenseIdDto) {
-    return this.expensesService.findById(dto.expenseId);
+  @Get('expenses/:expenseId')
+  findById(@Param('expenseId', ParseUUIDPipe) expenseId: string) {
+    return this.expensesService.findById(expenseId);
   }
 
-  @MessagePattern(ExpensesPatterns.LIST_BY_GROUP)
-  listByGroup(@Payload() dto: ListExpensesByGroupDto) {
-    return this.expensesService.listByGroup(dto.groupId);
+  @Get('groups/:groupId/expenses')
+  listByGroup(@Param('groupId', ParseUUIDPipe) groupId: string) {
+    return this.expensesService.listByGroup(groupId);
   }
 
-  @MessagePattern(ExpensesPatterns.UPDATE)
-  update(@Payload() dto: UpdateExpenseDto) {
-    return this.expensesService.update(dto);
+  @Patch('expenses/:expenseId')
+  update(
+    @Param('expenseId', ParseUUIDPipe) expenseId: string,
+    @Body() body: Omit<UpdateExpenseDto, 'expenseId'>,
+  ) {
+    return this.expensesService.update({ ...body, expenseId });
   }
 
-  @MessagePattern(ExpensesPatterns.DELETE)
-  delete(@Payload() dto: ExpenseIdDto) {
-    return this.expensesService.delete(dto.expenseId);
+  @Delete('expenses/:expenseId')
+  delete(@Param('expenseId', ParseUUIDPipe) expenseId: string) {
+    return this.expensesService.delete(expenseId);
   }
 }
