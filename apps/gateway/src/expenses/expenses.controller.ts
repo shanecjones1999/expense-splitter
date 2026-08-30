@@ -52,15 +52,23 @@ export class ExpensesController {
   }
 
   @Get('expenses/:id')
-  getOne(@Param('id', ParseUUIDPipe) id: string) {
-    return this.expensesClient.findById(id);
+  async getOne(
+    @CurrentUser() user: AuthUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    const expense = await this.expensesClient.findById(id);
+    await this.ensureMember(expense.groupId, user.userId);
+    return expense;
   }
 
   @Patch('expenses/:id')
-  update(
+  async update(
+    @CurrentUser() user: AuthUser,
     @Param('id', ParseUUIDPipe) id: string,
     @Body() body: Omit<UpdateExpenseDto, 'expenseId'>,
   ) {
+    const expense = await this.expensesClient.findById(id);
+    await this.ensureMember(expense.groupId, user.userId);
     return this.expensesClient.update({
       ...body,
       expenseId: id,
@@ -68,7 +76,12 @@ export class ExpensesController {
   }
 
   @Delete('expenses/:id')
-  delete(@Param('id', ParseUUIDPipe) id: string) {
+  async delete(
+    @CurrentUser() user: AuthUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    const expense = await this.expensesClient.findById(id);
+    await this.ensureMember(expense.groupId, user.userId);
     return this.expensesClient.delete(id);
   }
 

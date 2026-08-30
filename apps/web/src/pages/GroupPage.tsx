@@ -122,11 +122,18 @@ export function GroupPage() {
   }
 
   async function handleDeleteExpense(expenseId: string) {
-    await api.deleteExpense(expenseId);
-    setExpenses((current) =>
-      current.filter((expense) => expense.id !== expenseId),
-    );
-    await refreshBalancesSoon();
+    setError(null);
+    try {
+      await api.deleteExpense(expenseId);
+      setExpenses((current) =>
+        current.filter((expense) => expense.id !== expenseId),
+      );
+      await refreshBalancesSoon();
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : 'Could not remove expense',
+      );
+    }
   }
 
   async function handleAddMember(event: FormEvent) {
