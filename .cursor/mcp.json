@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "expense-splitter": {
+      "command": "node",
+      "args": ["apps/mcp-server/dist/index.js"],
+      "env": {
+        "EXPENSE_SPLITTER_URL": "http://localhost:3000/api/v1",
+        "EXPENSE_SPLITTER_EMAIL": "alice@example.com",
+        "EXPENSE_SPLITTER_PASSWORD": "password123"
+      }
+    }
+  }
+}
